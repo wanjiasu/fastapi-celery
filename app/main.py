@@ -3,7 +3,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from .settings import settings
-from .db import init_db, fetch_result
+from .db import init_db, fetch_result, sync_selected_leagues
 from .tasks import add
 
 app = FastAPI(title=settings.APP_NAME)
@@ -14,6 +14,7 @@ def _startup():
     cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     command.upgrade(cfg, "head")
     init_db()
+    sync_selected_leagues()
 
 
 @app.get("/health")

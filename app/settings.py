@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     POSTGRES_DSN: str
 
     API_FOOTBALL_KEY: str
+    LEAGUE_IDS: str
 
 
 settings = Settings()

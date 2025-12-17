@@ -51,3 +51,23 @@ def fetch_result(celery_task_id: str):
 
 engine = create_engine(settings.POSTGRES_DSN, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def sync_selected_leagues():
+    raw = getattr(settings, "LEAGUE_IDS", "")
+    ids = []
+    for s in raw.split(","):
+        s = s.strip()
+        if s:
+            try:
+                ids.append(int(s))
+            except Exception:
+                pass
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("CREATE TABLE IF NOT EXISTS selected_leagues (league_id INT PRIMARY KEY)")
+            if ids:
+                cur.execute("DELETE FROM selected_leagues WHERE league_id NOT IN (%s)" % ",".join(["%s"] * len(ids)), ids)
+                for i in ids:
+                    cur.execute("INSERT INTO selected_leagues (league_id) VALUES (%s) ON CONFLICT (league_id) DO NOTHING", (i,))
+            conn.commit()

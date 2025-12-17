@@ -5,7 +5,7 @@ from pathlib import Path
 from sqlalchemy import select
 from .celery_app import celery
 from .db import save_result, SessionLocal
-from .models import League, Fixture
+from .models import League, Fixture, SelectedFixture
 
 
 @celery.task(name="tasks.add")
