@@ -58,6 +58,3 @@ env/
 # Local databases
 *.db
 *.sqlite
-
-# test
-test/
