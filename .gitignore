@@ -41,3 +41,20 @@ celerybeat.pid
 
 # .venv
 .venv/
+
+# Chainlit generated files
+.chainlit/
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Local env folders
+env/
+
+# Test/CI tools
+.tox/
+
+# Local databases
+*.db
+*.sqlite
