@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     API_FOOTBALL_KEY: str
     LEAGUE_IDS: str
     BETS_IDS: str
+    LARK_WARN_BOT_URL: str
 
 
 settings = Settings()
