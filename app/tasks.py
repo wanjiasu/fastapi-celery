@@ -71,10 +71,9 @@ def fetch_odds_for_fixture(fixture_id: int):
         now_utc = datetime.now(timezone.utc)
         if (not sf) or ((sf.status_long or "") == "Match Finished") or (sf.match_date is None) or (sf.match_date <= now_utc):
             req_id = getattr(fetch_odds_for_fixture.request, "id", None) or f"odds-{fixture_id}"
-            out_skip = {"fixture_id": fixture_id, "skipped": True}
-            save_result(celery_task_id=req_id, result=json.dumps(out_skip))
-            notify_lark_result("tasks.fetch_odds_for_fixture", out_skip)
-            return {"fixture_id": fixture_id, "skipped": True}
+        out_skip = {"fixture_id": fixture_id, "skipped": True}
+        save_result(celery_task_id=req_id, result=json.dumps(out_skip))
+        return {"fixture_id": fixture_id, "skipped": True}
     try:
         bets_raw = getattr(settings, "BETS_IDS", "")
         bet_ids = set()
@@ -89,7 +88,6 @@ def fetch_odds_for_fixture(fixture_id: int):
         req_id = getattr(fetch_odds_for_fixture.request, "id", None) or f"odds-{fixture_id}"
         out = {"fixture_id": fixture_id, **res}
         save_result(celery_task_id=req_id, result=json.dumps(out))
-        notify_lark_result("tasks.fetch_odds_for_fixture", out)
         return out
     except Exception as e:
         notify_lark_error("tasks.fetch_odds_for_fixture", e)
@@ -113,5 +111,4 @@ def fetch_odds_for_open_selected_fixtures():
     req_id = getattr(fetch_odds_for_open_selected_fixtures.request, "id", None) or "odds-open-fixtures"
     out = {"scheduled": scheduled}
     save_result(celery_task_id=req_id, result=json.dumps(out))
-    notify_lark_result("tasks.fetch_odds_for_open_selected_fixtures", out)
     return out
