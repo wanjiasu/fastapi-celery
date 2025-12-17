@@ -5,7 +5,7 @@ from pathlib import Path
 from sqlalchemy import select
 from .celery_app import celery
 from .db import save_result, SessionLocal
-from .models import League, Fixture, SelectedFixture
+from .models import League, Fixture, SelectedFixture, OddsQuote
 
 
 @celery.task(name="tasks.add")
@@ -138,5 +138,109 @@ def fetch_recent_fixtures(days: int = 7):
         t = fetch_fixtures_for_date.delay(day)
         scheduled.append({"day": day, "task_id": t.id})
     req_id = getattr(fetch_recent_fixtures.request, "id", None) or "fixtures-7days"
+    save_result(celery_task_id=req_id, result=json.dumps({"scheduled": scheduled}))
+    return {"scheduled": scheduled}
+
+
+@celery.task(name="tasks.fetch_odds_for_fixture")
+def fetch_odds_for_fixture(fixture_id: int):
+    from .settings import settings
+    with SessionLocal() as session:
+        sf = session.execute(select(SelectedFixture).where(SelectedFixture.fixture_id == fixture_id)).scalar_one_or_none()
+        now_utc = datetime.now(timezone.utc)
+        if (not sf) or ((sf.status_long or "") == "Match Finished") or (sf.match_date is None) or (sf.match_date <= now_utc):
+            req_id = getattr(fetch_odds_for_fixture.request, "id", None) or f"odds-{fixture_id}"
+            save_result(celery_task_id=req_id, result=json.dumps({"fixture_id": fixture_id, "skipped": True}))
+            return {"fixture_id": fixture_id, "skipped": True}
+
+    url = "https://v3.football.api-sports.io/odds"
+    headers = {"x-apisports-key": settings.API_FOOTBALL_KEY}
+    params = {"fixture": str(fixture_id), "timezone": "UTC"}
+    resp = requests.get(url, headers=headers, params=params, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    bets_raw = getattr(settings, "BETS_IDS", "")
+    bet_ids = set()
+    for s in bets_raw.split(","):
+        s = s.strip()
+        if s:
+            try:
+                bet_ids.add(int(s))
+            except Exception:
+                pass
+
+    inserted = 0
+    items = data.get("response") or []
+    update_str = None
+    if items:
+        update_str = items[0].get("update")
+    update_dt = None
+    if update_str:
+        try:
+            update_dt = datetime.fromisoformat(update_str).astimezone(timezone.utc)
+        except Exception:
+            update_dt = None
+
+    with SessionLocal() as session:
+        for it in items:
+            bms = it.get("bookmakers") or []
+            for bm in bms:
+                bm_id = bm.get("id")
+                bm_name = bm.get("name")
+                bets = bm.get("bets") or []
+                for bet in bets:
+                    bid = bet.get("id")
+                    if bid not in bet_ids:
+                        continue
+                    bname = bet.get("name")
+                    vals = bet.get("values") or []
+                    for v in vals:
+                        sel = v.get("value")
+                        odd = v.get("odd")
+                        exists = session.execute(
+                            select(OddsQuote).where(
+                                OddsQuote.fixture_id == fixture_id,
+                                OddsQuote.bookmaker_id == bm_id,
+                                OddsQuote.bet_id == bid,
+                                OddsQuote.selection == sel,
+                                OddsQuote.update_time == update_dt,
+                            )
+                        ).scalar_one_or_none()
+                        if exists:
+                            continue
+                        obj = OddsQuote(
+                            fixture_id=fixture_id,
+                            bookmaker_id=bm_id,
+                            bookmaker_name=bm_name,
+                            bet_id=bid,
+                            bet_name=bname,
+                            selection=sel,
+                            odd=odd,
+                            update_time=update_dt,
+                        )
+                        session.add(obj)
+                        inserted += 1
+        session.commit()
+    req_id = getattr(fetch_odds_for_fixture.request, "id", None) or f"odds-{fixture_id}"
+    save_result(celery_task_id=req_id, result=json.dumps({"fixture_id": fixture_id, "inserted": inserted}))
+    return {"fixture_id": fixture_id, "inserted": inserted}
+
+
+@celery.task(name="tasks.fetch_odds_for_open_selected_fixtures")
+def fetch_odds_for_open_selected_fixtures():
+    scheduled = []
+    with SessionLocal() as session:
+        now_utc = datetime.now(timezone.utc)
+        rows = session.execute(
+            select(SelectedFixture.fixture_id).where(
+                ((SelectedFixture.status_long != "Match Finished") | (SelectedFixture.status_long.is_(None)))
+                & (SelectedFixture.match_date > now_utc)
+            )
+        ).scalars().all()
+        for fid in rows:
+            t = fetch_odds_for_fixture.delay(int(fid))
+            scheduled.append({"fixture_id": int(fid), "task_id": t.id})
+    req_id = getattr(fetch_odds_for_open_selected_fixtures.request, "id", None) or "odds-open-fixtures"
     save_result(celery_task_id=req_id, result=json.dumps({"scheduled": scheduled}))
     return {"scheduled": scheduled}

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     API_FOOTBALL_KEY: str
     LEAGUE_IDS: str
+    BETS_IDS: str
 
 
 settings = Settings()

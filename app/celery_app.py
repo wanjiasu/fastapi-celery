@@ -25,4 +25,9 @@ celery.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour="*/4"),
         "args": [7],
     }
+    ,
+    "fetch-odds-open-fixtures-hourly": {
+        "task": "tasks.fetch_odds_for_open_selected_fixtures",
+        "schedule": crontab(minute=0, hour="*"),
+    }
 }

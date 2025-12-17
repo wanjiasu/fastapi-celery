@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Text, DateTime
+from sqlalchemy import Integer, String, Text, DateTime, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -94,3 +94,17 @@ class SelectedFixture(Base):
     fulltime_away: Mapped[int | None] = mapped_column(Integer)
 
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class OddsQuote(Base):
+    __tablename__ = "odds_quotes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fixture_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    bookmaker_id: Mapped[int | None] = mapped_column(Integer)
+    bookmaker_name: Mapped[str | None] = mapped_column(String(255))
+    bet_id: Mapped[int | None] = mapped_column(Integer)
+    bet_name: Mapped[str | None] = mapped_column(String(255))
+    selection: Mapped[str | None] = mapped_column(String(255))
+    odd: Mapped[str | None] = mapped_column(String(20))
+    update_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
