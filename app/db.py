@@ -1,5 +1,7 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from .settings import settings
 
 
@@ -46,3 +48,6 @@ def fetch_result(celery_task_id: str):
                 (celery_task_id,),
             )
             return cur.fetchone()
+
+engine = create_engine(settings.POSTGRES_DSN, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

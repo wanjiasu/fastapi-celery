@@ -1,4 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from alembic import command
+from alembic.config import Config
 from .settings import settings
 from .db import init_db, fetch_result
 from .tasks import add
@@ -8,6 +11,8 @@ app = FastAPI(title=settings.APP_NAME)
 
 @app.on_event("startup")
 def _startup():
+    cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    command.upgrade(cfg, "head")
     init_db()
 
 
