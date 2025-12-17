@@ -19,4 +19,10 @@ celery.conf.beat_schedule = {
         "task": "tasks.import_leagues",
         "schedule": crontab(minute=0, hour=1),
     }
+    ,
+    "fetch-recent-fixtures-4h": {
+        "task": "tasks.fetch_recent_fixtures",
+        "schedule": crontab(minute=0, hour="*/4"),
+        "args": [7],
+    }
 }
