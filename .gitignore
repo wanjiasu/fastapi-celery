@@ -1,0 +1,43 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and local settings
+.venv/
+venv/
+.env
+.env.*.local
+.env.local
+
+# Packaging artifacts
+build/
+dist/
+.eggs/
+*.egg-info/
+
+# Test and coverage outputs
+.pytest_cache/
+.coverage*
+htmlcov/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Logs and runtime files
+logs/
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# IDE/editor cruft
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# .venv
+.venv/

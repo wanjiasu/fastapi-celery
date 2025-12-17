@@ -1,0 +1,15 @@
+[project]
+name = "test-fastapi-celery"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.30.6",
+    "celery==5.4.0",
+    "flower==2.0.1",
+    "redis==5.0.8",
+    "psycopg2-binary==2.9.9",
+    "pydantic-settings==2.4.0",
+]
