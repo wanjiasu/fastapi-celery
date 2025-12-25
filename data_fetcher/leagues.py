@@ -31,9 +31,13 @@ def import_leagues_data():
                 "country_flag_url": country.get("flag"),
             }
             if obj:
+                changed = 0
                 for k, v in values.items():
-                    setattr(obj, k, v)
-                updated += 1
+                    if getattr(obj, k) != v:
+                        setattr(obj, k, v)
+                        changed += 1
+                if changed:
+                    updated += 1
             else:
                 obj = League(league_id=league_id, **values)
                 session.add(obj)

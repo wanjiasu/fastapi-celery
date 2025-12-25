@@ -58,9 +58,13 @@ def fetch_fixtures_for_date_data(day: str):
                 "fulltime_away": ((score.get("fulltime") or {}).get("away")),
             }
             if obj:
+                changed = 0
                 for k, v in values.items():
-                    setattr(obj, k, v)
-                updated += 1
+                    if getattr(obj, k) != v:
+                        setattr(obj, k, v)
+                        changed += 1
+                if changed:
+                    updated += 1
             else:
                 obj = Fixture(fixture_id=fixture_id, **values)
                 session.add(obj)
