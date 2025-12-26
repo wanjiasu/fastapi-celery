@@ -1,0 +1,14 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": [
+    "langgraph",
+    "langgraph-cli",
+    "langchain-openai",
+    "python-dotenv",
+    "requests"
+  ],
+  "graphs": {
+    "fundamentals": "./agent/match_fundamentals_analyst.py:graph"
+  },
+  "env": "./.env"
+}

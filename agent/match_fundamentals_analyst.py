@@ -10,7 +10,7 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode
 load_dotenv()
-from api_football_tools import get_fixture_basic_info, get_standing_home_info, get_standing_away_info, get_fixture_head2head, get_home_last_10, get_away_last_10, get_injuries, get_fixture_odds
+from agent.api_football_tools import get_fixture_basic_info, get_standing_home_info, get_standing_away_info, get_fixture_head2head, get_home_last_10, get_away_last_10, get_injuries, get_fixture_odds
 
 # 模型初始化
 # 注意：langchain-openai 1.0.x 使用参数 `model` 而不是 `model_name`

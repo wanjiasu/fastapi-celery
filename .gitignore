@@ -21,6 +21,10 @@ dist/
 .coverage*
 htmlcov/
 
+#
+#
+coverage.xml
+
 # Tooling caches
 .mypy_cache/
 .ruff_cache/
@@ -32,6 +36,9 @@ logs/
 celerybeat-schedule
 celerybeat.pid
 
+*.pid
+dump.rdb
+
 # IDE/editor cruft
 .idea/
 .vscode/
@@ -39,11 +46,14 @@ celerybeat.pid
 # OS files
 .DS_Store
 
-# .venv
-.venv/
+*.swp
+*.swo
+*~
 
 # Chainlit generated files
 .chainlit/
+
+.streamlit/
 
 # Notebooks
 .ipynb_checkpoints/
@@ -52,9 +62,22 @@ celerybeat.pid
 # Local env folders
 env/
 
+.python-version
+.envrc
+
 # Test/CI tools
 .tox/
 
 # Local databases
 *.db
 *.sqlite
+*.sqlite3
+
+*.bak
+*.tmp
+*.old
+*.orig
+*.pem
+*.key
+*.crt
+.langgraph_api/
