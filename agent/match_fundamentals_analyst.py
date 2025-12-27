@@ -35,7 +35,110 @@ llm = ChatOpenAI(
 # 完整的状态定义
 class AgentState(MessagesState):
     fixture_id: Annotated[int, "Fixture ID for the current match"]
-    fundamentals_repost: Annotated[str, "Fundamentals report for the current match"]
+    fundamentals_report: Annotated[str, "Fundamentals report for the current match"]
+    if_bet: int | None = None
+    predict_winner: str | None = None
+    confidence: float | None = None
+    key_tag_evidence: str | None = None
+    languages: Sequence[str] | None = None
+    translations: Dict[str, Dict[str, str]] | None = None
+
+def create_evaluator_node(llm):
+    def evaluator_node(state: AgentState):
+        report = state.get("fundamentals_report")
+        if not report:
+            return {}
+        prompt_template = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                'You are a highly constrained football betting analyst. Your sole task is to analyze the provided Markdown fundamentals report and output the prediction data. STRICTLY adhere to the following rules:'
+                ' 1. Output MUST be a single-line, valid JSON object.'
+                ' 2. DO NOT include any markdown, code fences (```json), explanations, or preamble.'
+                ' 3. you must know who is home team and who is away team, don\'t get mix the two teams.'
+                ' 4. Use the exact following structure (Schema Definition):'
+                '    - \'if_bet\': Integer (1 = Yes, 0 = No). Please make a bold conclusion: return 0 if you hold a wait-and-see attitude, return 1 if you hold a betting attitude.'
+                '    - \'predict_winner\': String (\'home\' or \'away\')'
+                '    - \'confidence\': Float (ranging from 0.0 to 1.0)'
+                '    - \'key_tag_evidence\': String (Core evidence tags, separated by a \'/\' character).'
+            ),
+            (
+                "human",
+                "Fixture {fixture_id} report:\n\n{report}",
+            ),
+        ])
+        chain = prompt_template | llm
+        fixture_id = state["fixture_id"]
+        result = chain.invoke({"fixture_id": fixture_id, "report": report})
+        try:
+            import json
+            prediction_data = json.loads(result.content)
+            return {
+                "if_bet": prediction_data.get("if_bet"),
+                "predict_winner": prediction_data.get("predict_winner"),
+                "confidence": prediction_data.get("confidence"),
+                "key_tag_evidence": prediction_data.get("key_tag_evidence"),
+            }
+        except Exception:
+            return {
+                "if_bet": None,
+                "predict_winner": None,
+                "confidence": None,
+                "key_tag_evidence": None,
+            }
+    return evaluator_node
+
+def create_translator_node(llm):
+    def translator_node(state: AgentState):
+        report = state.get("fundamentals_report")
+        predict_winner = state.get("predict_winner")
+        key_tag_evidence = state.get("key_tag_evidence")
+        if not report:
+            return {}
+        lang_str = os.getenv("LANGUAGE_LIST", "")
+        items = [s.strip() for s in lang_str.split(",") if s.strip()]
+        pairs = []
+        for it in items:
+            name_locale = it.split(":", 1)
+            if len(name_locale) == 2:
+                pairs.append((name_locale[0].strip(), name_locale[1].strip()))
+        if not pairs:
+            return {}
+        translations: Dict[str, Dict[str, str]] = {}
+        for name, locale in pairs:
+            prompt_template = ChatPromptTemplate.from_messages([
+                (
+                    "system",
+                    "Translate the content to {target_name} (locale {target_locale}). Return a single-line valid JSON object with keys: 'report', 'predict_winner', 'key_tag_evidence'. Do not include markdown fences or extra text.",
+                ),
+                (
+                    "human",
+                    '{{"report": "{report}", "predict_winner": "{predict_winner}", "key_tag_evidence": "{key_tag_evidence}"}}',
+                ),
+            ])
+            chain = prompt_template | llm
+            result = chain.invoke({
+                "target_name": name,
+                "target_locale": locale,
+                "report": report,
+                "predict_winner": predict_winner or "",
+                "key_tag_evidence": key_tag_evidence or "",
+            })
+            try:
+                import json
+                data = json.loads(result.content)
+                translations[name] = {
+                    "report": data.get("report", ""),
+                    "predict_winner": data.get("predict_winner", ""),
+                    "key_tag_evidence": data.get("key_tag_evidence", ""),
+                }
+            except Exception:
+                translations[name] = {
+                    "report": result.content if hasattr(result, "content") else str(result),
+                    "predict_winner": "",
+                    "key_tag_evidence": "",
+                }
+        return {"languages": [n for n, _ in pairs], "translations": translations}
+    return translator_node
 
 # 创建fundamentals analyst 节点函数
 def create_fundamentals_analyst(llm):
@@ -99,7 +202,7 @@ def create_fundamentals_analyst(llm):
 
         return {
             "messages": [result],
-            "fundamentals_repost": report,
+            "fundamentals_report": report,
         }
 
     return fundamentals_analyst_node
@@ -127,6 +230,7 @@ tools = [
             get_fixture_basic_info,
             get_standing_home_info,
             get_standing_away_info,
+            get_fixture_odds,
         ]
 
 tool_node = ToolNode(tools=tools)
@@ -136,6 +240,8 @@ def create_fundamentals_graph():
     # 创建节点
     fundamentals_analyst = create_fundamentals_analyst(llm)
     msg_clear = create_msg_delete()
+    evaluator = create_evaluator_node(llm)
+    translator = create_translator_node(llm)
 
     # 创建工作流
     workflow = StateGraph(AgentState)
@@ -144,6 +250,8 @@ def create_fundamentals_graph():
     workflow.add_node("Fundamentals Analyst", fundamentals_analyst)
     workflow.add_node("Msg Clear Fundamentals", msg_clear)
     workflow.add_node("tools_fundamentals", tool_node)
+    workflow.add_node("evaluator", evaluator)
+    workflow.add_node("translator", translator)
 
     # 添加边
     workflow.add_edge(START, "Fundamentals Analyst")
@@ -156,7 +264,9 @@ def create_fundamentals_graph():
         },
     )
     workflow.add_edge("tools_fundamentals", "Fundamentals Analyst")
-    workflow.add_edge("Msg Clear Fundamentals", END)
+    workflow.add_edge("Msg Clear Fundamentals", "evaluator")
+    workflow.add_edge("evaluator", "translator")
+    workflow.add_edge("translator", END)
 
     # compile
     return workflow.compile()
@@ -176,13 +286,12 @@ def test_fundamentals_analyst(fixture_id: int = 1347805):
     
     # 运行图
     result = graph.invoke(initial_state)
-    
-    print(f"Fundamentals Report for fixture {fixture_id}:")
-    print("=" * 50)
-    print(result["fundamentals_repost"])
-    
-    return result
+    translations = result.get("translations") or {}
+    languages = result.get("languages") or list(translations.keys())
+    print(", ".join(languages))
+    return translations
 
 if __name__ == "__main__":
-    # 运行测试
-    test_fundamentals_analyst(fixture_id=1347805)
+    t = test_fundamentals_analyst(fixture_id=1347805)
+    import json
+    print(json.dumps(t, ensure_ascii=False))
