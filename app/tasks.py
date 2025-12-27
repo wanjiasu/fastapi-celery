@@ -10,6 +10,8 @@ from .models import League, Fixture, SelectedFixture, OddsQuote
 from data_fetcher.leagues import import_leagues_data
 from data_fetcher.fixtures import fetch_fixtures_for_date_data
 from data_fetcher.odds import fetch_odds_for_fixture_data
+from langchain_core.messages import HumanMessage
+from agent.match_fundamentals_analyst import graph
 
 
 @celery.task(name="tasks.add")
@@ -111,4 +113,47 @@ def fetch_odds_for_open_selected_fixtures():
     req_id = getattr(fetch_odds_for_open_selected_fixtures.request, "id", None) or "odds-open-fixtures"
     out = {"scheduled": scheduled}
     save_result(celery_task_id=req_id, result=json.dumps(out))
+    return out
+
+
+@celery.task(name="tasks.ai_eval_upcoming_selected_fixtures")
+def ai_eval_upcoming_selected_fixtures():
+    from datetime import timedelta
+    scheduled = []
+    with SessionLocal() as session:
+        now_utc = datetime.now(timezone.utc)
+        start = now_utc
+        end_day = (now_utc.date())
+        end_dt = datetime.combine(end_day, datetime.min.time()).replace(tzinfo=timezone.utc) + timedelta(days=3)
+        rows = session.execute(
+            select(SelectedFixture).where(
+                (SelectedFixture.match_date >= start) & (SelectedFixture.match_date < end_dt)
+            )
+        ).scalars().all()
+        count = 0
+        for sf in rows:
+            if (sf.status_long or "") == "Match Finished":
+                continue
+            if sf.ai_eval_translations:
+                continue
+            initial_state = {
+                "messages": [HumanMessage(content=f"分析比赛id为 {int(sf.fixture_id)} 的基本面数据")],
+                "fixture_id": int(sf.fixture_id),
+                "sender": "user",
+                "fundamentals_report": "",
+            }
+            try:
+                result = graph.invoke(initial_state)
+                translations = result.get("translations") or {}
+                sf.ai_eval_translations = translations
+                session.add(sf)
+                session.commit()
+                count += 1
+            except Exception as e:
+                notify_lark_error("tasks.ai_eval_upcoming_selected_fixtures", e)
+        
+    req_id = getattr(ai_eval_upcoming_selected_fixtures.request, "id", None) or "ai-eval-upcoming"
+    out = {"evaluated": count}
+    save_result(celery_task_id=req_id, result=json.dumps(out))
+    notify_lark_result("tasks.ai_eval_upcoming_selected_fixtures", out)
     return out

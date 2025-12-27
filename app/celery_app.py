@@ -30,4 +30,9 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_odds_for_open_selected_fixtures",
         "schedule": crontab(minute=0, hour="*"),
     }
+    ,
+    "ai-eval-upcoming-selected-fixtures-3h": {
+        "task": "tasks.ai_eval_upcoming_selected_fixtures",
+        "schedule": crontab(minute=0, hour="*/3"),
+    }
 }

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Text, DateTime, Numeric
+from sqlalchemy import Integer, String, Text, DateTime, Numeric, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -94,6 +94,8 @@ class SelectedFixture(Base):
     fulltime_away: Mapped[int | None] = mapped_column(Integer)
 
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    ai_eval_translations: Mapped[dict | None] = mapped_column(JSON)
 
 
 class OddsQuote(Base):
