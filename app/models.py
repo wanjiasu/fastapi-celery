@@ -98,6 +98,16 @@ class SelectedFixture(Base):
     ai_eval_translations: Mapped[dict | None] = mapped_column(JSON)
 
 
+class AiEval(Base):
+    __tablename__ = "ai_eval"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fixture_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    strategy: Mapped[str | None] = mapped_column(String(50))
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class OddsQuote(Base):
     __tablename__ = "odds_quotes"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

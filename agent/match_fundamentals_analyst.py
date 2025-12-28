@@ -42,6 +42,7 @@ class AgentState(MessagesState):
     key_tag_evidence: str | None = None
     languages: Sequence[str] | None = None
     translations: Dict[str, Dict[str, str]] | None = None
+    strategy: str | None = None
 
 def create_evaluator_node(llm):
     def evaluator_node(state: AgentState):
@@ -282,6 +283,7 @@ def test_fundamentals_analyst(fixture_id: int = 1347805):
         "fixture_id": fixture_id,
         "sender": "user",
         "fundamentals_report": "",
+        "strategy": "fundamentals",
     }
     
     # 运行图
